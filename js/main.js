@@ -1,3 +1,15 @@
+// ▼ このブロックをファイルの先頭に追加 ▼
+(function() {
+    // セッションストレージから認証情報を取得
+    const isVerified = sessionStorage.getItem('isUserVerified');
+    
+    // 認証情報が 'true' でなければ、ログインページに強制的に移動
+    if (isVerified !== 'true') {
+        // .replace()を使うと、ブラウザの「戻る」ボタンで戻れなくなる
+        window.location.replace('login.html');
+    }
+})();
+
 // DOM要素を定数として取得
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');

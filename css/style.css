@@ -39,9 +39,10 @@ body {
 
 /* --- スキャンボタン --- */
 #scanButton {
-    pointer-events: auto; /* ボタンはクリックできるようにする */
+    pointer-events: auto;
     position: absolute;
-    bottom: 40px;
+    /* ▼ bottom の値を変更 ▼ */
+    bottom: calc(40px + env(safe-area-inset-bottom)); /* iPhoneのバーを避ける */
     left: 50%;
     transform: translateX(-50%);
     width: 68px;
@@ -53,7 +54,7 @@ body {
     -webkit-backdrop-filter: blur(5px);
     cursor: pointer;
     transition: all 0.2s ease;
-    z-index: 20; /* ウィンドウより手前に配置 */
+    z-index: 20;
 }
 
 #scanButton:hover {
