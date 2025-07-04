@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SudOCR</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <main class="container">
+    <h1>SudOCR</h1>
+    <p class="description">このアプリは全ての画像処理をあなたのブラウザ内で行い、サーバーにデータを送信しません。</p>
+
+    <div id="video-container">
+        <video id="video" autoplay playsinline></video>
+    </div>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <div class="main-content">
+        <div class="controls">
+            <button id="scanButton" type="button">📷 スキャン</button>
+        </div>
+
+        <div id="result-container">
+            <h2>OCR結果:</h2>
+            <pre id="resultText">カメラを被写体に向けてスキャンしてください。</pre>
+        </div>
+    </div>
+    </main>
+
+    <script src="js/main.js"></script>
+
+</body>
+</html>
