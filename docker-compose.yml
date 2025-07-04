@@ -1,0 +1,15 @@
+# docker-compose.yml
+
+version: '3.8'
+
+services:
+  ocr-app:
+    # Dockerfileがある場所を指定してビルドする
+    build: .
+    # コンテナの名前
+    container_name: SudOCR
+    # ポートのマッピング (サーバーの8080番ポートをコンテナの80番ポートに接続)
+    ports:
+      - "8080:80"
+    # Docker再起動時にコンテナも自動で再起動する
+    restart: always
