@@ -2,34 +2,30 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SudOCR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Secure OCR</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
-    <main class="container">
-    <h1>SudOCR</h1>
-    <p class="description">このアプリは全ての画像処理をあなたのブラウザ内で行い、サーバーにデータを送信しません。</p>
-
-    <div id="video-container">
+    <main class="ocr-viewport">
         <video id="video" autoplay playsinline></video>
-    </div>
-    <canvas id="canvas" style="display:none;"></canvas>
+        <canvas id="canvas" style="display:none;"></canvas>
 
-    <div class="main-content">
-        <div class="controls">
-            <button id="scanButton" type="button">📷 スキャン</button>
-        </div>
+        <div class="ui-overlay">
+            <div class="results-window" id="resultsContainer">
+                <div class="results-header">
+                    <h2>OCR 結果</h2>
+                    <button class="close-button" id="closeButton" title="閉じる">&times;</button>
+                </div>
+                <div class="results-content">
+                    <pre id="resultText"></pre>
+                </div>
+            </div>
 
-        <div id="result-container">
-            <h2>OCR結果:</h2>
-            <pre id="resultText">カメラを被写体に向けてスキャンしてください。</pre>
+            <button id="scanButton" type="button" title="スキャン"></button>
         </div>
-    </div>
     </main>
 
     <script src="js/main.js"></script>
-
 </body>
 </html>
