@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SudOCR</title>
+    <title>Secure OCR</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <main class="ocr-viewport">
         <video id="video" autoplay playsinline></video>
         <canvas id="canvas" style="display:none;"></canvas>
+
         <div class="ui-overlay">
             <div class="results-window" id="resultsContainer">
                 <div class="results-header">
@@ -20,9 +21,11 @@
                     <pre id="resultText"></pre>
                 </div>
             </div>
+
             <button id="scanButton" type="button" title="スキャン"></button>
         </div>
     </main>
+
     <script src="js/main.js"></script>
 </body>
 </html>
