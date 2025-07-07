@@ -1,0 +1,19 @@
+# Python 3.11をベースイメージとして使用
+FROM python:3.11-slim
+
+# 作業ディレクトリを設定
+WORKDIR /app
+
+# 必要なライブラリをインストール
+# Pillowなどの画像処理ライブラリに必要なパッケージ
+RUN apt-get update && apt-get install -y libgl1-mesa-glx libglib2.0-0
+
+# requirements.txt をコピーしてライブラリをインストール
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# アプリケーションのコードをコピー
+COPY . .
+
+# 8000番ポートでアプリケーションを起動
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,15 +1,29 @@
-# docker-compose.yml
+async function runCustomOCR(canvasElement) {
+    console.log("バックエンドAPIに画像を送信します。");
 
-version: '3.8'
+    // Canvasから画像データをBlobとして取得
+    const blob = await new Promise(resolve => canvasElement.toBlob(resolve, 'image/png'));
 
-services:
-  ocr-app:
-    # Dockerfileがある場所を指定してビルドする
-    build: .
-    # コンテナの名前
-    container_name: SudOCR
-    # ポートのマッピング (サーバーの8080番ポートをコンテナの80番ポートに接続)
-    ports:
-      - "8080:80"
-    # Docker再起動時にコンテナも自動で再起動する
-    restart: always
+    // FormDataオブジェクトを作成して画像を追加
+    const formData = new FormData();
+    formData.append('image', blob, 'scan.png');
+
+    try {
+        // バックエンドの/ocrエンドポイントにPOSTリクエストを送信
+        const response = await fetch('/api/ocr', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            throw new Error(`APIエラー: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        return result.text || "テキストが見つかりませんでした。";
+
+    } catch (error) {
+        console.error("APIへのリクエスト中にエラーが発生:", error);
+        return "OCR処理中にエラーが発生しました。\nサーバーに接続できませんでした。";
+    }
+}
