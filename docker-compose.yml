@@ -1,29 +1,30 @@
-async function runCustomOCR(canvasElement) {
-    console.log("バックエンドAPIに画像を送信します。");
+version: '3.8'
 
-    // Canvasから画像データをBlobとして取得
-    const blob = await new Promise(resolve => canvasElement.toBlob(resolve, 'image/png'));
+services:
+  # フロントエンド (Webアプリ)
+  ocr-app:
+    build:
+      context: ./frontend  # frontendフォルダのDockerfile(なければNginxなど)を使う
+    image: nginx:1.27-alpine-slim # フロントエンドはNginxで配信
+    volumes:
+      - ./frontend:/usr/share/nginx/html # コードをマウント
+    container_name: ocr_webapp_frontend
+    restart: always
 
-    // FormDataオブジェクトを作成して画像を追加
-    const formData = new FormData();
-    formData.append('image', blob, 'scan.png');
+  # バックエンド (PaddleOCR API)
+  api-server:
+    build:
+      context: ./backend # backendフォルダのDockerfileを使う
+    container_name: ocr_api_backend
+    restart: always
 
-    try {
-        // バックエンドの/ocrエンドポイントにPOSTリクエストを送信
-        const response = await fetch('/api/ocr', {
-            method: 'POST',
-            body: formData,
-        });
+  # Cloudflare Tunnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ocr_cloudflared
+    restart: always
+    command: tunnel --no-autoupdate run --token <ここにあなたのトークンを貼り付け>
 
-        if (!response.ok) {
-            throw new Error(`APIエラー: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        return result.text || "テキストが見つかりませんでした。";
-
-    } catch (error) {
-        console.error("APIへのリクエスト中にエラーが発生:", error);
-        return "OCR処理中にエラーが発生しました。\nサーバーに接続できませんでした。";
-    }
-}
+networks:
+  default:
+    name: ocr_network

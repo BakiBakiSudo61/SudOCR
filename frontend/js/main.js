@@ -24,11 +24,33 @@ const closeButton = document.getElementById('closeButton');
  * @returns {Promise<string>} - OCR結果のテキスト
  */
 async function runCustomOCR(canvasElement) {
-    console.log("OCR処理をシミュレート中...");
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    const dummyResult = `スキャン成功！\n日時: ${new Date().toLocaleString()}\nこのウィンドウは下からスライドして表示されます。\n閉じるボタンで再び隠れます。`;
-    console.log("シミュレーション完了。");
-    return dummyResult;
+    console.log("バックエンドAPIに画像を送信します。");
+
+    // Canvasから画像データをBlobとして取得
+    const blob = await new Promise(resolve => canvasElement.toBlob(resolve, 'image/png'));
+
+    // FormDataオブジェクトを作成して画像を追加
+    const formData = new FormData();
+    formData.append('image', blob, 'scan.png');
+
+    try {
+        // バックエンドの/ocrエンドポイントにPOSTリクエストを送信
+        const response = await fetch('/api/ocr', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            throw new Error(`APIエラー: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        return result.text || "テキストが見つかりませんでした。";
+
+    } catch (error) {
+        console.error("APIへのリクエスト中にエラーが発生:", error);
+        return "OCR処理中にエラーが発生しました。\nサーバーに接続できませんでした。";
+    }
 }
 
 // カメラをセットアップする非同期関数
