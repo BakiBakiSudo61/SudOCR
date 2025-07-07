@@ -27,7 +27,7 @@ ocr = PaddleOCR(use_angle_cls=True, lang='japan', ocr_version='PP-OCRv5')
 def read_root():
     return {"message": "PaddleOCR API is running"}
 
-@app.post("/ocr")
+@app.post("/api/ocr")
 async def perform_ocr(image: UploadFile = File(...)):
     # アップロードされたファイルを読み込む
     contents = await image.read()
