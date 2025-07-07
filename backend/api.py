@@ -1,10 +1,24 @@
 from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from paddleocr import PaddleOCR
 import numpy as np
 import cv2
 
 # FastAPIアプリケーションの初期化
 app = FastAPI()
+
+# 通信を許可するオリジン（あなたのフロントエンドのURL）のリスト
+origins = [
+    "https://sudocr.bakix2.jp",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # すべてのメソッド（GET, POSTなど）を許可
+    allow_headers=["*"], # すべてのヘッダーを許可
+)
 
 # PaddleOCRの初期化
 ocr = PaddleOCR(use_angle_cls=True, lang='japan', ocr_version='PP-OCRv5')
