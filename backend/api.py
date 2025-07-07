@@ -7,8 +7,7 @@ import cv2
 app = FastAPI()
 
 # PaddleOCRの初期化 (日本語モデル、CPUを使用)
-# GPUを使いたい場合は use_gpu=True に変更
-ocr = PaddleOCR(use_angle_cls=True, lang='japan', use_gpu=False)
+ocr = PaddleOCR(use_angle_cls=True, lang='ja')
 
 @app.get("/")
 def read_root():
