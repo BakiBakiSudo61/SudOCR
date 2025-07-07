@@ -35,7 +35,7 @@ async function runCustomOCR(canvasElement) {
 
     try {
         // バックエンドの/ocrエンドポイントにPOSTリクエストを送信
-        const response = await fetch('https://api.sudocr.bakix2.jp/ocr', {
+        const response = await fetch('/api/ocr', {
             method: 'POST',
             body: formData,
         });
