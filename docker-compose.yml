@@ -3,18 +3,18 @@ version: '3.8'
 services:
   # フロントエンド (Webアプリ)
   ocr-app:
-    build:
-      context: ./frontend  # frontendフォルダのDockerfile(なければNginxなど)を使う
-    image: nginx:1.27-alpine-slim # フロントエンドはNginxで配信
+    # Dockerfileからビルドするのではなく、既存のNginxイメージを直接使用します
+    image: nginx:1.27-alpine-slim
+    # ローカルのfrontendフォルダを、Nginxコンテナの公開ディレクトリに接続します
     volumes:
-      - ./frontend:/usr/share/nginx/html # コードをマウント
+      - ./frontend:/usr/share/nginx/html
     container_name: ocr_webapp_frontend
     restart: always
 
   # バックエンド (PaddleOCR API)
   api-server:
     build:
-      context: ./backend # backendフォルダのDockerfileを使う
+      context: ./backend # backendフォルダのDockerfileを使ってビルドします
     container_name: ocr_api_backend
     restart: always
 
@@ -25,6 +25,7 @@ services:
     restart: always
     command: tunnel --no-autoupdate run --token <ここにあなたのトークンを貼り付け>
 
+# コンテナ同士が通信するためのネットワークを定義
 networks:
   default:
     name: ocr_network
