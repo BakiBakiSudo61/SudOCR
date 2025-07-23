@@ -19,29 +19,33 @@ const resultsContainer = document.getElementById('resultsContainer');
 const closeButton = document.getElementById('closeButton');
 
 /**
- * 自作のOCRモデルを呼び出すためのプレースホルダー関数
+ * 自作のOCRモデルを呼び出すための関数
  * @param {HTMLCanvasElement} canvasElement - 映像フレームが描画されたCanvas
  * @returns {Promise<string>} - OCR結果のテキスト
  */
 async function runCustomOCR(canvasElement) {
     console.log("バックエンドAPIに画像を送信します。");
 
-    // Canvasから画像データをBlobとして取得
-    const blob = await new Promise(resolve => canvasElement.toBlob(resolve, 'image/png'));
-
-    // FormDataオブジェクトを作成して画像を追加
-    const formData = new FormData();
-    formData.append('image', blob, 'scan.png');
-
     try {
-        // バックエンドの/ocrエンドポイントにPOSTリクエストを送信
+        // Canvasから画像データをBlobとして取得（品質を0.8に設定）
+        const blob = await new Promise(resolve => 
+            canvasElement.toBlob(resolve, 'image/png', 0.8)
+        );
+
+        // FormDataオブジェクトを作成して画像を追加
+        const formData = new FormData();
+        formData.append('image', blob, 'scan.png');
+
+        // バックエンドの/api/ocrエンドポイントにPOSTリクエストを送信
         const response = await fetch('/api/ocr', {
             method: 'POST',
             body: formData,
         });
 
         if (!response.ok) {
-            throw new Error(`APIエラー: ${response.statusText}`);
+            const errorData = await response.json().catch(() => null);
+            const errorMessage = errorData?.detail || `APIエラー: ${response.status} ${response.statusText}`;
+            throw new Error(errorMessage);
         }
 
         const result = await response.json();
@@ -49,7 +53,12 @@ async function runCustomOCR(canvasElement) {
 
     } catch (error) {
         console.error("APIへのリクエスト中にエラーが発生:", error);
-        return "OCR処理中にエラーが発生しました。\nサーバーに接続できませんでした。";
+        
+        if (error.message.includes('Failed to fetch')) {
+            return "OCR処理中にエラーが発生しました。\nサーバーに接続できませんでした。\nネットワーク接続を確認してください。";
+        }
+        
+        return `OCR処理中にエラーが発生しました。\n${error.message}`;
     }
 }
 

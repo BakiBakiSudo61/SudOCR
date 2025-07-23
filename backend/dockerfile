@@ -4,16 +4,36 @@ FROM python:3.11-slim
 # 作業ディレクトリを設定
 WORKDIR /app
 
-# 必要なライブラリをインストール
-# Pillowなどの画像処理ライブラリに必要なパッケージ
-RUN apt-get update && apt-get install -y libgl1-mesa-glx libglib2.0-0
+# 必要なシステムパッケージをインストール
+# Pillowやcv2などの画像処理ライブラリに必要
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
 # requirements.txt をコピーしてライブラリをインストール
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # アプリケーションのコードをコピー
 COPY . .
+
+# 非rootユーザーでアプリケーションを実行
+RUN adduser --disabled-password --gecos '' appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+# ヘルスチェック設定
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+
+# ポートを公開
+EXPOSE 8000
 
 # 8000番ポートでアプリケーションを起動
 CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
