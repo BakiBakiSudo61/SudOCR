@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sudocr-backend
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=INFO
+      - MAX_FILE_SIZE_MB=10
+      - ALLOWED_ORIGINS=https://sudocr.bakix2.jp
+      - DEBUG=False
+    volumes:
+      - ./backend/logs:/app/logs
+    networks:
+      - sudocr-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    container_name: sudocr-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - backend
+    networks:
+      - sudocr-network
+
+networks:
+  sudocr-network:
+    driver: bridge
+
+volumes:
+  backend_logs:
+  nginx_logs:
