@@ -3,6 +3,11 @@
     box-sizing: border-box;
 }
 
+*:focus {
+    outline: 2px solid #007aff;
+    outline-offset: 2px;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background-color: #000;
@@ -68,12 +73,33 @@ body {
     /* 初期状態では画面下に完全に隠す */
     transform: translateY(100%);
     visibility: hidden;
+
+    /* アクセシビリティ改善 */
+    role: dialog;
+    aria-labelledby: "results-header";
+    
+    /* スクロール改善 */
+    -webkit-overflow-scrolling: touch;
 }
 
 /* 表示されたときのスタイル */
 .results-window.is-visible {
     transform: translateY(0);
     visibility: visible;
+}
+
+.results-window.error .results-header {
+    background-color: rgba(255, 59, 48, 0.1);
+    border-bottom-color: rgba(255, 59, 48, 0.3);
+}
+
+.results-window.error #resultText {
+    color: #ff6b6b;
+}
+
+.results-window.success .results-header {
+    background-color: rgba(52, 199, 89, 0.1);
+    border-bottom-color: rgba(52, 199, 89, 0.3);
 }
 
 .results-header {
@@ -110,6 +136,23 @@ body {
     flex-grow: 1;
     overflow-y: auto;
     padding: 16px 20px;
+
+    /* スクロールバーのスタイリング */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.results-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.results-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.results-content::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
 }
 
 #resultText {
@@ -119,6 +162,10 @@ body {
     font-size: 0.9rem;
     line-height: 1.6;
     margin: 0;
+
+    /* 選択可能にする */
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 /* --- スキャンボタン --- */
@@ -143,6 +190,50 @@ body {
 
     opacity: 1;
     visibility: visible;
+
+    /* アクセシビリティ改善 */
+    position: relative;
+}
+
+#scanButton::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 24px;
+    height: 24px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+#scanButton::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    background-color: currentColor;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+#scanButton.processing::before {
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 0.7;
+    }
 }
 
 #scanButton.is-hidden {
@@ -162,4 +253,19 @@ body {
 #scanButton:disabled {
     cursor: not-allowed;
     opacity: 0.5;
+}
+
+/* モーションを減らす設定 */
+@media (prefers-reduced-motion: reduce) {
+    .results-window {
+        transition: none;
+    }
+    
+    #scanButton {
+        transition: none;
+    }
+    
+    #scanButton.processing::before {
+        animation: none;
+    }
 }

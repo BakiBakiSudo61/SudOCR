@@ -1,122 +1,237 @@
-// ▼ このブロックをファイルの先頭に追加 ▼
+// 認証チェック - IIFE（即座実行関数式）でカプセル化
 (function() {
-    // セッションストレージから認証情報を取得
+    'use strict';
+    
     const isVerified = sessionStorage.getItem('isUserVerified');
     
-    // 認証情報が 'true' でなければ、ログインページに強制的に移動
     if (isVerified !== 'true') {
-        // .replace()を使うと、ブラウザの「戻る」ボタンで戻れなくなる
         window.location.replace('login.html');
+        return;
     }
 })();
 
-// DOM要素を定数として取得
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const scanButton = document.getElementById('scanButton');
-const resultText = document.getElementById('resultText');
-const resultsContainer = document.getElementById('resultsContainer');
-const closeButton = document.getElementById('closeButton');
+// 定数とDOM要素
+const CONFIG = {
+    MAX_RETRY_COUNT: 3,
+    RETRY_DELAY: 1000,
+    IMAGE_QUALITY: 0.85,
+    SUPPORTED_FORMATS: ['image/png', 'image/jpeg', 'image/webp']
+};
+
+const elements = {
+    video: document.getElementById('video'),
+    canvas: document.getElementById('canvas'),
+    scanButton: document.getElementById('scanButton'),
+    resultText: document.getElementById('resultText'),
+    resultsContainer: document.getElementById('resultsContainer'),
+    closeButton: document.getElementById('closeButton')
+};
+
+// 状態管理
+let isProcessing = false;
+let cameraStream = null;
 
 /**
- * 自作のOCRモデルを呼び出すための関数
- * @param {HTMLCanvasElement} canvasElement - 映像フレームが描画されたCanvas
- * @returns {Promise<string>} - OCR結果のテキスト
+ * OCR処理のリトライ機能付きAPI呼び出し
+ * @param {HTMLCanvasElement} canvasElement - 画像が描画されたCanvas
+ * @param {number} retryCount - リトライ回数
+ * @returns {Promise<string>} OCR結果のテキスト
  */
-async function runCustomOCR(canvasElement) {
-    console.log("バックエンドAPIに画像を送信します。");
-
+async function runOCRWithRetry(canvasElement, retryCount = 0) {
     try {
-        // Canvasから画像データをBlobとして取得（品質を0.8に設定）
-        const blob = await new Promise(resolve => 
-            canvasElement.toBlob(resolve, 'image/png', 0.8)
-        );
+        console.log(`OCR処理開始 (試行: ${retryCount + 1}/${CONFIG.MAX_RETRY_COUNT + 1})`);
 
-        // FormDataオブジェクトを作成して画像を追加
+        // Canvasから高品質な画像データをBlobとして取得
+        const blob = await new Promise((resolve, reject) => {
+            canvasElement.toBlob(
+                (blob) => blob ? resolve(blob) : reject(new Error('画像の生成に失敗しました')),
+                'image/png',
+                CONFIG.IMAGE_QUALITY
+            );
+        });
+
+        // ファイルサイズをチェック
+        if (blob.size > 10 * 1024 * 1024) { // 10MB
+            throw new Error('画像サイズが大きすぎます');
+        }
+
         const formData = new FormData();
         formData.append('image', blob, 'scan.png');
 
-        // バックエンドの/api/ocrエンドポイントにPOSTリクエストを送信
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
+
         const response = await fetch('/api/ocr', {
             method: 'POST',
             body: formData,
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => null);
-            const errorMessage = errorData?.detail || `APIエラー: ${response.status} ${response.statusText}`;
-            throw new Error(errorMessage);
+            throw new Error(errorData?.detail || `サーバーエラー: ${response.status}`);
         }
 
         const result = await response.json();
-        return result.text || "テキストが見つかりませんでした。";
+        return result.text || "テキストが見つかりませんでした";
 
     } catch (error) {
-        console.error("APIへのリクエスト中にエラーが発生:", error);
-        
-        if (error.message.includes('Failed to fetch')) {
-            return "OCR処理中にエラーが発生しました。\nサーバーに接続できませんでした。\nネットワーク接続を確認してください。";
+        console.error(`OCRエラー (試行: ${retryCount + 1}):`, error);
+
+        // リトライ可能なエラーかチェック
+        const isRetryableError = 
+            error.name === 'AbortError' ||
+            error.message.includes('Failed to fetch') ||
+            error.message.includes('NetworkError');
+
+        if (isRetryableError && retryCount < CONFIG.MAX_RETRY_COUNT) {
+            console.log(`${CONFIG.RETRY_DELAY}ms後にリトライします...`);
+            await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY));
+            return runOCRWithRetry(canvasElement, retryCount + 1);
         }
-        
-        return `OCR処理中にエラーが発生しました。\n${error.message}`;
+
+        // エラーメッセージを分類
+        if (error.name === 'AbortError') {
+            return "処理がタイムアウトしました。\nネットワーク接続を確認して再試行してください。";
+        } else if (error.message.includes('Failed to fetch')) {
+            return "サーバーに接続できませんでした。\nネットワーク接続を確認してください。";
+        } else {
+            return `OCR処理中にエラーが発生しました。\n${error.message}`;
+        }
     }
 }
 
-// カメラをセットアップする非同期関数
+/**
+ * カメラのセットアップ（改善版）
+ */
 async function setupCamera() {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' },
+        // 既存のストリームがあれば停止
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+        }
+
+        const constraints = {
+            video: {
+                facingMode: 'environment',
+                width: { ideal: 1920 },
+                height: { ideal: 1080 }
+            },
             audio: false
+        };
+
+        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+        elements.video.srcObject = cameraStream;
+        
+        await new Promise((resolve, reject) => {
+            elements.video.onloadedmetadata = resolve;
+            elements.video.onerror = reject;
         });
-        video.srcObject = stream;
-        video.addEventListener('loadedmetadata', () => {
-            video.play();
-        });
-    } catch (err) {
-        console.error("カメラへのアクセスエラー:", err);
-        resultText.textContent = "カメラにアクセスできませんでした。ブラウザの設定でカメラの使用を許可してください。";
-        // エラー時もウィンドウを表示
-        resultsContainer.classList.add('is-visible');
-        scanButton.style.display = 'none'; // ボタンを隠す
+
+        await elements.video.play();
+        console.log('カメラ初期化完了');
+
+    } catch (error) {
+        console.error("カメラアクセスエラー:", error);
+        
+        let errorMessage = "カメラにアクセスできませんでした。";
+        
+        if (error.name === 'NotAllowedError') {
+            errorMessage += "\nブラウザの設定でカメラの使用を許可してください。";
+        } else if (error.name === 'NotFoundError') {
+            errorMessage += "\nカメラが見つかりませんでした。";
+        } else if (error.name === 'NotReadableError') {
+            errorMessage += "\nカメラが他のアプリケーションで使用中の可能性があります。";
+        }
+
+        showResult(errorMessage);
+        elements.scanButton.style.display = 'none';
     }
 }
 
-// スキャンボタンがクリックされたときの処理
-scanButton.addEventListener('click', async () => {
-    if (!video.srcObject || !video.srcObject.active) {
-        resultText.textContent = "カメラが有効ではありません。";
-        resultsContainer.classList.add('is-visible');
-        scanButton.style.display = 'none'; // ボタンを隠す
+/**
+ * 結果表示の共通関数
+ */
+function showResult(text) {
+    elements.resultText.textContent = text;
+    elements.resultsContainer.classList.add('is-visible');
+    elements.scanButton.style.display = 'none';
+}
+
+/**
+ * 結果ウィンドウを閉じる
+ */
+function closeResult() {
+    elements.resultsContainer.classList.remove('is-visible');
+    elements.scanButton.style.display = 'block';
+    isProcessing = false;
+}
+
+/**
+ * カメラの状態をチェック
+ */
+function isCameraActive() {
+    return cameraStream && 
+           cameraStream.active && 
+           cameraStream.getVideoTracks().length > 0 &&
+           cameraStream.getVideoTracks()[0].readyState === 'live';
+}
+
+// イベントリスナーの設定
+elements.scanButton.addEventListener('click', async () => {
+    if (isProcessing) return;
+
+    if (!isCameraActive()) {
+        showResult("カメラが有効ではありません。\nページを再読み込みして再試行してください。");
         return;
     }
 
-    // ボタンを隠し、ウィンドウを表示する
-    scanButton.style.display = 'none';
-    resultsContainer.classList.add('is-visible');
-    resultText.textContent = "処理中...";
+    isProcessing = true;
+    elements.scanButton.style.display = 'none';
+    elements.resultsContainer.classList.add('is-visible');
+    elements.resultText.textContent = "画像を処理中...";
 
     try {
-        const context = canvas.getContext('2d');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Canvas設定とキャプチャ
+        const context = elements.canvas.getContext('2d');
+        elements.canvas.width = elements.video.videoWidth;
+        elements.canvas.height = elements.video.videoHeight;
+        
+        if (elements.canvas.width === 0 || elements.canvas.height === 0) {
+            throw new Error('ビデオの解像度を取得できませんでした');
+        }
 
-        const ocrResult = await runCustomOCR(canvas);
-        resultText.textContent = ocrResult;
+        context.drawImage(elements.video, 0, 0, elements.canvas.width, elements.canvas.height);
+
+        const ocrResult = await runOCRWithRetry(elements.canvas);
+        elements.resultText.textContent = ocrResult;
 
     } catch (error) {
-        console.error("OCR処理中にエラーが発生しました:", error);
-        resultText.textContent = "エラーが発生しました。コンソールを確認してください。";
+        console.error("スキャン処理エラー:", error);
+        elements.resultText.textContent = `エラーが発生しました。\n${error.message}`;
     }
 });
 
-// 閉じるボタンがクリックされたときの処理
-closeButton.addEventListener('click', () => {
-    // ウィンドウを隠し、ボタンを再表示する
-    resultsContainer.classList.remove('is-visible');
-    scanButton.style.display = 'block';
+elements.closeButton.addEventListener('click', closeResult);
+
+// キーボードショートカット
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && elements.resultsContainer.classList.contains('is-visible')) {
+        closeResult();
+    } else if (event.key === ' ' && !isProcessing && !elements.resultsContainer.classList.contains('is-visible')) {
+        event.preventDefault();
+        elements.scanButton.click();
+    }
 });
 
-// ページ読み込み時にカメラをセットアップ
+// ページ離脱時のクリーンアップ
+window.addEventListener('beforeunload', () => {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+    }
+});
+
+// 初期化
 window.addEventListener('load', setupCamera);
